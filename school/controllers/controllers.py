@@ -1,22 +1,12 @@
-# -*- coding: utf-8 -*-
-# from odoo import http
+from odoo import http
+from odoo.http import request
 
 
-# class School(http.Controller):
-#     @http.route('/school/school', auth='public')
-#     def index(self, **kw):
-#         return "Hello, world"
+class SchoolController(http.Controller):
 
-#     @http.route('/school/school/objects', auth='public')
-#     def list(self, **kw):
-#         return http.request.render('school.listing', {
-#             'root': '/school/school',
-#             'objects': http.request.env['school.school'].search([]),
-#         })
+    @http.route('/school/events/', auth='public', type='http', website=True)
+    def list_events(self, **kwargs):
+        events = request.env['school.event'].sudo().search([])
+        lines = [ev.display_name for ev in events]  # usa name_get
 
-#     @http.route('/school/school/objects/<model("school.school"):obj>', auth='public')
-#     def object(self, obj, **kw):
-#         return http.request.render('school.object', {
-#             'object': obj
-#         })
-
+        return "<br/>".join(lines) if lines else "No hay eventos"

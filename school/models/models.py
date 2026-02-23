@@ -1,35 +1,39 @@
 # -*- coding: utf-8 -*-
 
-from odoo import models, fields
+from odoo import models, fields, api
+from datetime import date
 
 class SchoolStudent(models.Model):
     _name = 'school.student'
     _description = 'Estudiante de la Escuela'
 
-    # Requisitos básicos
     name = fields.Char(string='Nombre', required=True)
     last_name = fields.Char(string='Apellidos', required=True)
     birth_date = fields.Date(string='Fecha de nacimiento')
-    
-    # Restricción de unicidad para el DNI
-    dni = fields.Char(string='DNI/NIE', required=True)
-    
-    active = fields.Boolean(string='Activo', default=True)
-    age = fields.Integer(string='Edad')
 
-    # Relaciones
-    # Un estudiante pertenece a una clase (Many2one)
-    # Se deduce de la relación de agregación en el diagrama
+    dni = fields.Char(string='DNI/NIE', required=True)
+
+    active = fields.Boolean(string='Activo', default=True)
+
+    #  edad calculada
+    age = fields.Integer(string='Edad', compute='_compute_age', store=True)
+
     class_id = fields.Many2one('school.class', string='Clase')
-    
-    # Un estudiante puede asistir a muchos eventos (Many2many)
-    # Definiremos la relación inversa aquí para comodidad, aunque el diagrama lo marca en Event
     event_ids = fields.Many2many('school.event', string='Eventos')
 
-    # SQL Constraint para que el DNI sea único
     _sql_constraints = [
         ('dni_unique', 'unique(dni)', 'El DNI debe ser único.')
     ]
+
+    @api.depends('birth_date')
+    def _compute_age(self):
+        today = date.today()
+        for rec in self:
+            if rec.birth_date:
+                b = rec.birth_date
+                rec.age = today.year - b.year - ((today.month, today.day) < (b.month, b.day))
+            else:
+                rec.age = 0
 
 
 class SchoolClass(models.Model):
@@ -61,4 +65,29 @@ class SchoolClass(models.Model):
 class SchoolEvent(models.Model):
     _name = 'school.event'
     _description = 'Eventos Escolares'
-    _order = 'date
+    _order = 'date'
+
+    date = fields.Date(string='Fecha', required=True)
+    event_type = fields.Selection([
+        ('trip', 'Excursión'),
+        ('exam', 'Examen'),
+        ('meeting', 'Reunión'),
+        ('other', 'Otro'),
+    ], string='Tipo de evento', required=True)
+
+    description = fields.Text(string='Descripción')
+
+    class_id = fields.Many2one('school.class', string='Clase')
+    teacher_id = fields.Many2one('hr.employee', string='Profesor responsable')
+    student_ids = fields.Many2many('school.student', string='Estudiantes')
+
+    def name_get(self):
+        result = []
+        selection_map = dict(self._fields['event_type'].selection)
+
+        for rec in self:
+            tipo = selection_map.get(rec.event_type, '') if rec.event_type else ''
+            clase = rec.class_id.name or ''
+            display = f"{tipo} - {clase}".strip(" -")
+            result.append((rec.id, display))
+        return result
